@@ -1,0 +1,20 @@
+site:
+  base_url: "https://www.sehuatang.net"
+  mirror_urls: []
+  username: "your_username"
+  password: "your_password"
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0 Safari/537.36"
+
+ai:
+  api_key: "${AI_API_KEY:-}"
+  base_url: "${AI_BASE_URL:-}"
+  model: "gpt-4o-mini"
+  temperature: 0.5
+  max_tokens: 200
+
+bot:
+  dry_run: true
+  reply_enabled: false
+  reply_forums: []
+  signature: "—— 来自自动化小助手"
+  daily_checkin_enabled: true
