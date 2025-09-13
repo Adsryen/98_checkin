@@ -55,14 +55,14 @@
   </table>
 </section>
 
-<dialog id="accountDialog" style="max-width: 600px; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
-  <article style="margin: 0; border-radius: 12px; overflow: hidden;">
+<dialog id="accountDialog" style="width: min(92vw, 720px); max-height: 85vh; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); padding: 0;">
+  <article style="margin: 0; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; height: 100%;">
     <header style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; margin: 0; border-radius: 0;">
       <h3 id="dlgTitle" style="margin: 0; font-size: 1.5rem; font-weight: 600;">添加账号</h3>
       <p id="dlgDesc" style="margin: 0.5rem 0 0; opacity: 0.9; font-size: 0.95rem;">配置账号登录信息，支持用户名密码或 Cookie 方式</p>
     </header>
     
-    <div style="padding: 2rem;">
+    <div style="padding: 1rem 1.25rem; flex: 1; overflow: auto;">
       <form id="dlgForm" method="post" action="/accounts/add">
         <!-- 登录方式选择 -->
         <fieldset style="margin-bottom: 1.25rem; border: 1px solid var(--pico-muted-border-color); border-radius: 8px; padding: 1rem;">
@@ -133,7 +133,7 @@
       </form>
 
       <!-- 操作按钮（分离，便于使用 dialog 关闭机制） -->
-      <footer style="display: flex; gap: 1rem; justify-content: flex-end; padding-top: 1.5rem; border-top: 1px solid var(--pico-muted-border-color);">
+      <footer style="display: flex; gap: 1rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--pico-muted-border-color); position: sticky; bottom: 0; background: var(--pico-card-background-color, #fff);">
         <form method="dialog" style="margin: 0;">
           <button type="submit" class="secondary" style="min-width: 100px;">取消</button>
         </form>
