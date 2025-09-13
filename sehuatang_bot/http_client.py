@@ -6,6 +6,7 @@ from typing import Optional
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from urllib.parse import urlparse
 
 
 class HttpClient:
@@ -16,6 +17,7 @@ class HttpClient:
         timeout: int = 20,
         retries: int = 3,
         backoff: float = 0.5,
+        proxy: Optional[str] = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
@@ -38,6 +40,17 @@ class HttpClient:
         adapter = HTTPAdapter(max_retries=retry, pool_connections=10, pool_maxsize=20)
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
+        if proxy:
+            self.set_proxy(proxy)
+
+    def set_proxy(self, proxy: Optional[str]):
+        if proxy:
+            self.session.proxies.update({
+                "http": proxy,
+                "https": proxy,
+            })
+        else:
+            self.session.proxies.clear()
 
     def url(self, path: str) -> str:
         if path.startswith("http://") or path.startswith("https://"):
@@ -53,8 +66,15 @@ class HttpClient:
         return self.session.post(self.url(path), data=data, timeout=self.timeout, **kwargs)
 
     def set_cookies(self, cookies: dict):
+        # 带域名设置，确保请求会携带
+        parsed = urlparse(self.base_url)
+        domain = parsed.hostname or None
         for k, v in cookies.items():
-            self.session.cookies.set(k, v)
+            try:
+                self.session.cookies.set(k, v, domain=domain, path="/")
+            except Exception:
+                # 回退到不指定域
+                self.session.cookies.set(k, v)
 
     def get_cookies(self) -> dict:
         return self.session.cookies.get_dict()

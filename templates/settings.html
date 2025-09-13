@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>后台设置</h2>
+
+{% if saved %}
+<p class="muted" style="background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; padding:.5rem .75rem; border-radius:8px;">已保存配置（如被环境变量覆盖，请检查下方提示；重启后生效更稳妥）。</p>
+{% endif %}
+
+<article>
+  <header>
+    <h3>站点设置</h3>
+    <small class="muted">可配置默认的 98 网址与代理（如设置了环境变量将优先生效）</small>
+  </header>
+  <form method="post" action="/settings">
+    <fieldset class="grid">
+      <label>
+        默认站点 base_url
+        <input type="text" name="site_base_url" value="{{ cfg.site.base_url }}" placeholder="https://www.sehuatang.net" />
+        {% if env_overrides.base_url %}<small class="muted">当前被环境变量 SITE_BASE_URL 覆盖：{{ env_overrides.base_url }}</small>{% endif %}
+      </label>
+      <label>
+        代理（可选）
+        <input type="text" name="site_proxy" value="{{ cfg.site.proxy or '' }}" placeholder="http://127.0.0.1:7890" />
+        {% if env_overrides.proxy %}<small class="muted">当前被环境变量（SITE_PROXY/HTTP_PROXY/HTTPS_PROXY）覆盖：{{ env_overrides.proxy }}</small>{% endif %}
+      </label>
+    </fieldset>
+
+    <header>
+      <h3>机器人设置</h3>
+    </header>
+    <fieldset>
+      <label>
+        签名
+        <input type="text" name="signature" value="{{ cfg.bot.signature }}" />
+      </label>
+      <label>
+        <input type="checkbox" name="dry_run" {% if cfg.bot.dry_run %}checked{% endif %} />
+        干跑（不真正回帖）
+      </label>
+      <label>
+        <input type="checkbox" name="daily_checkin_enabled" {% if cfg.bot.daily_checkin_enabled %}checked{% endif %} />
+        启用每日签到
+      </label>
+    </fieldset>
+    <button type="submit">保存</button>
+  </form>
+</article>
+
+<article>
+  <header><h3>运行</h3></header>
+  <p>使用顶部导航“任务”查看和触发签到。</p>
+</article>
+{% endblock %}
+
+
+
+

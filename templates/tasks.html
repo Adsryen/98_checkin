@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>任务列表</h2>
+<table>
+  <thead>
+    <tr>
+      <th>任务</th>
+      <th>状态</th>
+      <th>信息</th>
+      <th>更新时间</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in tasks %}
+    <tr>
+      <td>{{ t.name }}</td>
+      <td>
+        {% if t.status == '成功' %}
+          <span class="status-success">成功</span>
+        {% elif t.status == '失败' %}
+          <span class="status-fail">失败</span>
+        {% else %}
+          <span class="status-pending">未执行</span>
+        {% endif %}
+      </td>
+      <td>{{ t.message }}</td>
+      <td>{{ t.updated_at }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  </table>
+
+  <form method="post" action="/run/checkin">
+    <button type="submit">立即执行签到</button>
+  </form>
+{% endblock %}
+
+

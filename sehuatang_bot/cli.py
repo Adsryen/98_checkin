@@ -6,6 +6,9 @@ from typing import Optional
 import click
 
 from .config import load_config
+from .state import StateStore
+from .web import create_app
+import uvicorn
 from .runner import Runner
 
 
@@ -68,6 +71,19 @@ def run_all_cmd(ctx: click.Context):
     click.echo(f"签到：{'成功' if ok else '失败'} - {msg}")
     # 非零表示存在失败
     sys.exit(0 if (res["login"] and ok) else 10)
+
+
+@cli.command("serve")
+@click.option("--host", default="0.0.0.0", show_default=True, help="监听主机")
+@click.option("--port", type=int, default=None, help="监听端口（默认读取配置，或9898）")
+@click.pass_context
+def serve_cmd(ctx: click.Context, host: str, port: Optional[int]):
+    """启动Web服务，提供任务页与后台设置。"""
+    cfg = ctx.obj["cfg"]
+    state = StateStore()
+    app = create_app(cfg, state)
+    final_port = port or cfg.server_port or 9898
+    uvicorn.run(app, host=host, port=final_port, log_level="info")
 
 
 def main():

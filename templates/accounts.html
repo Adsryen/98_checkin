@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <header class="grid">
+    <div>
+      <h2 style="margin-bottom: .25rem;">账号管理</h2>
+      <small class="muted">集中管理多账号，支持 Cookie 或 用户名/密码，支持验证资料与手动签到。</small>
+    </div>
+    <div style="text-align: right; align-self: end;">
+      <input id="search" type="search" placeholder="搜索用户名/备注" oninput="filterRows()" />
+      <button onclick="openAdd()">添加账号</button>
+    </div>
+  </header>
+
+  <table id="tblAccounts">
+    <thead>
+      <tr>
+        <th style="width:56px">#</th>
+        <th>用户名</th>
+        <th>用户组</th>
+        <th>积分</th>
+        <th>金钱</th>
+        <th>色币</th>
+        <th>备注</th>
+        <th>签到状态</th>
+        <th style="width:260px">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for acc in accounts %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td><a href="/accounts/{{ loop.index0 }}">{{ acc.username or (acc.remark or acc.name or ('账号' ~ loop.index)) }}</a></td>
+        <td>{{ acc.user_group or '—' }}</td>
+        <td>{{ acc.points is not none and acc.points or '—' }}</td>
+        <td>{{ acc.money is not none and acc.money or '—' }}</td>
+        <td>{{ acc.secoin is not none and acc.secoin or '—' }}</td>
+        <td>{{ acc.remark or acc.name or '—' }}</td>
+        <td>
+          {% if acc.last_checkin_ok is not none %}
+            {% if acc.last_checkin_ok %}<span class="tag success">成功</span>{% else %}<span class="tag fail">失败</span>{% endif %}
+          {% else %}<span class="tag pending">未执行</span>{% endif %}
+        </td>
+        <td>
+          <div class="action-bar">
+            <button type="button" class="btn btn-sm btn-secondary" onclick="openVerify({{ loop.index0 }})">验证</button>
+            <form method="post" action="/accounts/{{ loop.index0 }}/run/checkin"><button type="submit" class="btn btn-sm btn-primary">签到</button></form>
+            <button class="btn btn-sm" onclick="openEdit({{ loop.index0 }}, '{{ acc.username or '' }}', '{{ (acc.password or '')|e }}', '{{ (acc.base_url or '')|e }}', '{{ (acc.user_agent or '')|e }}', '{{ (acc.remark or '')|e }}')">编辑</button>
+            <form method="post" action="/accounts/{{ loop.index0 }}/delete" onsubmit="return confirm('删除该账号？');"><button type="submit" class="btn btn-sm btn-danger">删除</button></form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<dialog id="accountDialog" style="max-width: 600px; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+  <article style="margin: 0; border-radius: 12px; overflow: hidden;">
+    <header style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; margin: 0; border-radius: 0;">
+      <h3 id="dlgTitle" style="margin: 0; font-size: 1.5rem; font-weight: 600;">添加账号</h3>
+      <p id="dlgDesc" style="margin: 0.5rem 0 0; opacity: 0.9; font-size: 0.95rem;">配置账号登录信息，支持用户名密码或 Cookie 方式</p>
+    </header>
+    
+    <div style="padding: 2rem;">
+      <form id="dlgForm" method="post" action="/accounts/add">
+        <!-- 登录方式选择 -->
+        <fieldset style="margin-bottom: 1.25rem; border: 1px solid var(--pico-muted-border-color); border-radius: 8px; padding: 1rem;">
+          <legend style="font-weight: 600; color: var(--pico-primary);">登录方式</legend>
+          <div class="grid">
+            <label style="display: flex; align-items: center; gap: 0.5rem;">
+              <input type="radio" name="auth_type" value="password" checked onchange="toggleAuthType()">
+              <span>用户名密码</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.5rem;">
+              <input type="radio" name="auth_type" value="cookie" onchange="toggleAuthType()">
+              <span>Cookie 登录</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- 账号标识（用户名始终显示） -->
+        <fieldset style="margin-bottom: 1.25rem; border: 1px solid var(--pico-muted-border-color); border-radius: 8px; padding: 1rem;">
+          <legend style="font-weight: 600; color: var(--pico-primary);">账号标识</legend>
+          <label>
+            用户名
+            <input type="text" name="username" placeholder="请输入用户名（Cookie 模式也建议填写）" />
+          </label>
+        </fieldset>
+
+        <!-- 密码（仅密码模式显示，明文） -->
+        <fieldset id="passwordAuth" style="margin-bottom: 1.25rem; border: 1px solid var(--pico-muted-border-color); border-radius: 8px; padding: 1rem;">
+          <legend style="font-weight: 600; color: var(--pico-primary);">密码</legend>
+          <label>
+            密码（明文）
+            <input type="text" name="password" placeholder="请输入或修改密码" />
+          </label>
+        </fieldset>
+
+        <!-- Cookie 区域（仅 Cookie 模式显示） -->
+        <fieldset id="cookieAuth" style="margin-bottom: 1.25rem; border: 1px solid var(--pico-muted-border-color); border-radius: 8px; padding: 1rem; display: none;">
+          <legend style="font-weight: 600; color: var(--pico-primary);">Cookie</legend>
+          <label>
+            Cookie 字符串
+            <textarea name="cookie_string" placeholder="从浏览器复制，如：name1=value1; name2=value2" rows="4"></textarea>
+            <small style="color: var(--pico-muted-color);">建议配合用户名，用于展示与数据匹配</small>
+          </label>
+        </fieldset>
+
+        <!-- 高级设置 -->
+        <details style="margin-bottom: 1.25rem;">
+          <summary style="font-weight: 600; color: var(--pico-primary); cursor: pointer;">高级设置（可选）</summary>
+          <div style="margin-top: 1rem; padding: 1rem; background: var(--pico-background-color); border-radius: 8px;">
+            <div class="grid">
+              <label>
+                自定义域名
+                <input type="text" name="base_url" placeholder="https://mirror.example.com" />
+                <small style="color: var(--pico-muted-color);">覆盖默认站点地址</small>
+              </label>
+              <label>
+                User-Agent
+                <input type="text" name="user_agent" placeholder="自定义浏览器标识" />
+                <small style="color: var(--pico-muted-color);">模拟特定浏览器</small>
+              </label>
+            </div>
+            <label>
+              备注
+              <input type="text" name="remark" placeholder="为这个账号添加备注，便于识别" />
+              <small style="color: var(--pico-muted-color);">如：主号、小号、测试等</small>
+            </label>
+          </div>
+        </details>
+      </form>
+
+      <!-- 操作按钮（分离，便于使用 dialog 关闭机制） -->
+      <footer style="display: flex; gap: 1rem; justify-content: flex-end; padding-top: 1.5rem; border-top: 1px solid var(--pico-muted-border-color);">
+        <form method="dialog" style="margin: 0;">
+          <button type="submit" class="secondary" style="min-width: 100px;">取消</button>
+        </form>
+        <button id="submitBtn" type="submit" form="dlgForm" style="min-width: 100px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
+          <span id="submitText">保存账号</span>
+        </button>
+      </footer>
+    </div>
+  </article>
+</dialog>
+
+<!-- 验证弹窗 -->
+<dialog id="verifyDialog" style="max-width: 720px; border-radius: 12px;">
+  <article style="margin:0;">
+    <header>
+      <h3 style="margin:0;">账号验证</h3>
+      <p id="verifySubtitle" class="muted" style="margin:.25rem 0 0;">逐步检查会话、登录与资料拉取</p>
+    </header>
+    <div id="verifyBody" style="padding-top:.5rem;">
+      <ol id="verifySteps" style="margin:0; padding-left: 1rem;"></ol>
+      <pre id="verifyLog" style="margin-top:1rem; max-height: 220px; overflow:auto; background:#0b1020; color:#cbd5e1; padding:.75rem; border-radius:8px; display:none;"></pre>
+    </div>
+    <footer style="display:flex; gap:.5rem; justify-content:flex-end;">
+      <button class="secondary" onclick="toggleVerifyLog()">展开/折叠日志</button>
+      <form method="dialog"><button type="submit">关闭</button></form>
+    </footer>
+  </article>
+</dialog>
+
+<script>
+const dlg = document.getElementById('accountDialog');
+const form = document.getElementById('dlgForm');
+const titleEl = document.getElementById('dlgTitle');
+const descEl = document.getElementById('dlgDesc');
+const table = document.getElementById('tblAccounts');
+const search = document.getElementById('search');
+const submitBtn = document.getElementById('submitBtn');
+const submitText = document.getElementById('submitText');
+
+const verifyDialog = document.getElementById('verifyDialog');
+const verifySteps = document.getElementById('verifySteps');
+const verifyLog = document.getElementById('verifyLog');
+const verifySubtitle = document.getElementById('verifySubtitle');
+
+function toggleAuthType() {
+  const authType = form.auth_type.value;
+  const passwordAuth = document.getElementById('passwordAuth');
+  const cookieAuth = document.getElementById('cookieAuth');
+  
+  if (authType === 'password') {
+    passwordAuth.style.display = 'block';
+    cookieAuth.style.display = 'none';
+    form.password.required = false;
+  } else {
+    passwordAuth.style.display = 'none';
+    cookieAuth.style.display = 'block';
+    form.password.required = false;
+  }
+}
+
+function openAdd(){
+  form.action = '/accounts/add';
+  titleEl.textContent = '添加账号';
+  if (descEl) descEl.textContent = '配置账号登录信息，支持用户名密码或 Cookie 方式';
+  if (submitText) submitText.textContent = '保存账号';
+  form.reset();
+  form.auth_type.value = 'password';
+  toggleAuthType();
+  dlg.showModal();
+}
+
+function openEdit(idx, username, password, base_url, user_agent, remark){
+  form.action = '/accounts/'+idx+'/edit';
+  titleEl.textContent = '编辑账号';
+  if (descEl) descEl.textContent = '可直接查看旧密码（明文），留空表示不修改';
+  if (submitText) submitText.textContent = '保存修改';
+  
+  form.username.value = username || '';
+  form.password.value = password || '';
+  form.cookie_string.value = '';
+  form.base_url.value = base_url || '';
+  form.user_agent.value = user_agent || '';
+  form.remark.value = remark || '';
+  form.auth_type.value = 'password';
+  toggleAuthType();
+  dlg.showModal();
+}
+
+function openVerify(idx){
+  verifySteps.innerHTML = '';
+  verifyLog.textContent = '';
+  verifyLog.style.display = 'none';
+  verifySubtitle.textContent = `逐步检查账号 #${idx+1}`;
+  verifyDialog.showModal();
+  // call API
+  fetch(`/api/accounts/${idx}/verify`, {method:'POST'})
+    .then(r => r.json())
+    .then(data => {
+      const steps = data.steps || [];
+      steps.forEach((s,i) => {
+        const li = document.createElement('li');
+        const ok = s.ok === true;
+        const pending = s.ok === null || typeof s.ok === 'undefined';
+        const cls = ok ? 'tag success' : (pending ? 'tag pending' : 'tag fail');
+        li.innerHTML = `<div style="display:flex; align-items:center; gap:.5rem;">`+
+                       `<span class="${cls}">${ok? '成功': (pending? '进行中':'失败')}</span>`+
+                       `<strong>${i+1}. ${s.name}</strong>`+
+                       `</div>`+
+                       `<details style="margin:.25rem 0 0;">`+
+                       `<summary>详情</summary>`+
+                       `<div style="white-space:pre-wrap; word-break:break-all;">${(s.details||'').toString()}</div>`+
+                       `</details>`;
+        verifySteps.appendChild(li);
+        if (s.details) {
+          verifyLog.textContent += `[${i+1}] ${s.name}: ${s.details}\n`;
+        }
+      });
+      if (verifyLog.textContent) verifyLog.style.display = 'block';
+    })
+    .catch(err => {
+      verifySteps.innerHTML = `<li><span class="tag fail">失败</span> 调用接口异常</li>`;
+      verifyLog.textContent = String(err || '');
+      verifyLog.style.display = 'block';
+    });
+}
+
+function toggleVerifyLog(){
+  verifyLog.style.display = (verifyLog.style.display === 'none') ? 'block' : 'none';
+}
+
+function closeDlg(){ dlg.close(); }
+
+dlg.addEventListener('click', function(e){ if (e.target === dlg) dlg.close(); });
+dlg.addEventListener('keydown', function(e){ if (e.key === 'Escape') dlg.close(); });
+
+function filterRows(){
+  const q = (search.value || '').toLowerCase();
+  const rows = table.tBodies[0].rows;
+  for (let i=0;i<rows.length;i++){
+    const username = (rows[i].cells[1].innerText || '').toLowerCase();
+    const remark = (rows[i].cells[6].innerText || '').toLowerCase();
+    rows[i].style.display = (username.includes(q) || remark.includes(q)) ? '' : 'none';
+  }
+}
+
+form.addEventListener('submit', function() {
+  if (submitBtn) submitBtn.disabled = true;
+  if (submitText) submitText.textContent = '保存中...';
+});
+</script>
+{% endblock %}
+
+
+

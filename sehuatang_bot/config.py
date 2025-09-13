@@ -6,6 +6,7 @@ from typing import List, Optional
 
 import yaml
 from pydantic import BaseModel, Field
+from typing import Any, Dict
 
 
 class OpenAIConfig(BaseModel):
@@ -22,6 +23,7 @@ class SiteConfig(BaseModel):
     username: str
     password: str
     user_agent: str = Field(default="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0 Safari/537.36")
+    proxy: Optional[str] = Field(default=None, description="可选：HTTP/HTTPS 代理，如 http://127.0.0.1:7890")
 
 
 class BotConfig(BaseModel):
@@ -32,10 +34,26 @@ class BotConfig(BaseModel):
     daily_checkin_enabled: bool = Field(default=True)
 
 
+class AccountConfig(BaseModel):
+    # 兼容旧字段：name 已不再展示，使用 remark 作为备注
+    name: Optional[str] = Field(default=None, description="(已废弃) 账号名称，保留兼容")
+    username: Optional[str] = Field(default=None, description="账号用户名，可选：若使用cookie可为空")
+    password: Optional[str] = Field(default=None, description="账号密码，可选：若使用cookie可为空")
+    cookie_string: Optional[str] = Field(default=None, description="浏览器导出的cookie字符串，可选")
+    cookies: List[str] = Field(default_factory=list, description="以 k=v 形式的cookie列表，可选")
+    base_url: Optional[str] = Field(default=None, description="覆盖站点base_url")
+    user_agent: Optional[str] = Field(default=None, description="覆盖UA")
+    remark: Optional[str] = Field(default=None, description="备注")
+
+
 class AppConfig(BaseModel):
     site: SiteConfig
     ai: OpenAIConfig
     bot: BotConfig = Field(default_factory=BotConfig)
+    server_port: int = Field(default=9898, description="Web服务端口，默认9898")
+    admin_password: Optional[str] = Field(default=None, description="后台管理员密码；若为空则仅本地访问允许设置")
+    accounts: List[AccountConfig] = Field(default_factory=list, description="多账号列表；为空时使用全局site.username/password")
+    db_path: str = Field(default="./data.sqlite3", description="SQLite 数据库文件路径")
 
 
 DEFAULT_CONFIG_PATHS = [
@@ -65,13 +83,25 @@ def load_config(path: Optional[str] = None) -> AppConfig:
     # allow env override
     # SITE_
     site = data.get("site", {})
-    site.setdefault("base_url", os.getenv("SITE_BASE_URL"))
-    site.setdefault("username", os.getenv("SITE_USERNAME"))
-    site.setdefault("password", os.getenv("SITE_PASSWORD"))
+    # 仅当环境变量存在时覆盖
+    if os.getenv("SITE_BASE_URL"):
+        site["base_url"] = os.getenv("SITE_BASE_URL")
+    if os.getenv("SITE_USERNAME"):
+        site["username"] = os.getenv("SITE_USERNAME")
+    if os.getenv("SITE_PASSWORD"):
+        site["password"] = os.getenv("SITE_PASSWORD")
+    # 兜底默认：避免为 None 触发 Pydantic 校验错误
+    site.setdefault("base_url", "https://www.sehuatang.net")
+    site.setdefault("username", "")
+    site.setdefault("password", "")
     if os.getenv("SITE_MIRROR_URLS"):
         site["mirror_urls"] = [s.strip() for s in os.getenv("SITE_MIRROR_URLS").split(",") if s.strip()]
     if os.getenv("SITE_UA"):
         site["user_agent"] = os.getenv("SITE_UA")
+    # 代理：优先 SITE_PROXY，否则 HTTP_PROXY/HTTPS_PROXY
+    proxy_env = os.getenv("SITE_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("HTTPS_PROXY")
+    if proxy_env:
+        site["proxy"] = proxy_env
 
     # AI_
     ai = data.get("ai", {})
@@ -102,6 +132,42 @@ def load_config(path: Optional[str] = None) -> AppConfig:
     data["site"] = site
     data["ai"] = ai
     data.setdefault("bot", bot)
+    # accounts 加载并兜底
+    accounts = data.get("accounts") or []
+    if isinstance(accounts, list) is False:
+        accounts = []
+    data["accounts"] = accounts
+
+    # SERVER_
+    if os.getenv("SERVER_PORT"):
+        data["server_port"] = int(os.getenv("SERVER_PORT"))
+    if os.getenv("ADMIN_PASSWORD"):
+        data["admin_password"] = os.getenv("ADMIN_PASSWORD")
+    if os.getenv("DB_PATH"):
+        data["db_path"] = os.getenv("DB_PATH")
 
     cfg = AppConfig(**data)
     return cfg
+
+
+def save_config(cfg: AppConfig, path: Optional[str] = None) -> str:
+    """将当前配置保存为 YAML。
+    如果未提供路径，则优先保存到已有的第一个默认路径；若都不存在，则写入 ./config.yaml。
+    返回最终保存的文件路径。
+    """
+    # 选择保存路径
+    target_path = path
+    if not target_path:
+        for p in DEFAULT_CONFIG_PATHS:
+            if os.path.exists(p):
+                target_path = p
+                break
+        if not target_path:
+            target_path = "./config.yaml"
+
+    # 生成可序列化的 dict
+    data: Dict[str, Any] = cfg.model_dump(exclude_none=True)
+    # 写入 YAML
+    with open(target_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
+    return target_path

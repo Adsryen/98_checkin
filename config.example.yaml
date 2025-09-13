@@ -4,6 +4,8 @@ site:
   username: "your_username"
   password: "your_password"
   user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0 Safari/537.36"
+  # Optional proxy, e.g. http://127.0.0.1:7890
+  proxy: ""
 
 ai:
   api_key: "${AI_API_KEY:-}"
@@ -18,3 +20,19 @@ bot:
   reply_forums: []
   signature: "—— 来自自动化小助手"
   daily_checkin_enabled: true
+
+# Web 服务配置
+db_path: "./data.sqlite3"
+server_port: 9898
+# 后台管理员密码（可用环境变量 ADMIN_PASSWORD 覆盖）。为空则仅允许本地操作。
+admin_password: ""
+
+# 多账号（可选）：支持用户名/密码或仅Cookie
+accounts:
+  - username: "your_username"
+    password: "your_password"
+    # cookie_string: "k1=v1; k2=v2"
+    # base_url: "https://your-mirror.example.com"
+    # user_agent: "Mozilla/5.0 ..."
+  - username: "cookie_only_user"
+    cookie_string: "k1=v1; k2=v2"

@@ -27,41 +27,80 @@ class DiscuzClient:
         m2 = re.search(r'formhash=([a-zA-Z0-9]{8})', html)
         return m2.group(1) if m2 else None
 
+    def fetch_loginhash(self, html: str) -> Optional[str]:
+        # Discuz 登录页通常包含 loginhash=xxxx
+        m = re.search(r'loginhash=([a-z0-9]+)', html, re.I)
+        return m.group(1) if m else None
+
     def login(self, username: str, password: str) -> bool:
-        # 1. 打开首页，获取登录链接与 formhash
-        r = self.http.get("/")
-        r.raise_for_status()
-        formhash = self.fetch_formhash(r.text)
+        # 1. 打开首页，获取 formhash；再打开登录页，尽可能获取 loginhash
+        r_home = self.http.get("/")
+        formhash = self.fetch_formhash(r_home.text) if r_home.status_code == 200 else None
 
-        # 2. 尝试常见登录端点（不同站点路径不同，这里做兜底）
-        candidates = [
-            "/member.php?mod=logging&action=login&loginsubmit=yes&loginhash=xx",
-            "/member.php?mod=logging&action=login&loginsubmit=yes",
-            "/ucp.php?mod=login",
-        ]
+        r_login = self.http.get("/member.php?mod=logging&action=login")
+        loginhash = self.fetch_loginhash(r_login.text) if r_login.status_code == 200 else None
 
-        payload_base = {
+        # 2. 构造 payload 与候选端点
+        payload = {
+            "fastloginfield": "username",
             "username": username,
+            "cookietime": 2592000,
             "password": password,
             "formhash": formhash or "",
-            "referer": self.http.url("/"),
-            "cookietime": 2592000,
+            "quickforward": "yes",
+            "handlekey": "ls",
         }
+        candidates = [
+            "/member.php?mod=logging&action=login&loginsubmit=yes&infloat=yes&lssubmit=yes&inajax=1",
+            "/member.php?mod=logging&action=login&loginsubmit=yes",
+        ]
+        if loginhash:
+            candidates.insert(0, f"/member.php?mod=logging&action=login&loginsubmit=yes&loginhash={loginhash}")
 
+        # 3. 依次尝试端点
+        headers = {
+            "Referer": self.http.url("/forum.php"),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        }
         for path in candidates:
-            rr = self.http.post(path, data=payload_base)
+            rr = self.http.post(path, data=payload, headers=headers)
             if rr.status_code in (200, 302):
-                # 粗略判定：是否出现欢迎/退出链接/个人中心等字样
+                # 成功判定：立即文本判定或回到首页检查
                 text = rr.text
-                if any(k in text for k in ["欢迎", "退出", "我的帖子", "控制面板", "登录失败" ]) is False:
-                    # 有些站点登录成功会 302 到首页；再请求首页确认
-                    home = self.http.get("/")
-                    if self.is_logged_in(home.text):
-                        return True
-                else:
-                    if self.is_logged_in(text):
-                        return True
+                if self.is_logged_in(text):
+                    return True
+                home = self.http.get("/")
+                if self.is_logged_in(home.text):
+                    return True
         return False
+
+    def fetch_profile(self) -> Tuple[bool, dict | str]:
+        """获取个人资料页并解析用户组、积分、金钱、色币、评分。"""
+        r = self.http.get("/home.php?mod=space")
+        if r.status_code != 200:
+            return False, f"请求失败：{r.status_code}"
+        html = r.text
+        # 用户组
+        m_g = re.search(r"用户组[^<]*?<a[^>]*>([^<]+)</a>", html)
+        user_group = m_g.group(1).strip() if m_g else None
+        # 积分/金钱/色币/评分（在统计信息区域）
+        def grab(label: str) -> int | None:
+            m = re.search(rf"<li><em>\s*{label}\s*</em>\s*([0-9]+)\s*</li>", html)
+            return int(m.group(1)) if m else None
+
+        points = grab("积分")
+        money = grab("金钱")
+        secoin = grab("色币")
+        score = grab("评分")
+
+        data = {
+            "user_group": user_group,
+            "points": points,
+            "money": money,
+            "secoin": secoin,
+            "score": score,
+        }
+        return True, data
 
     def is_logged_in(self, html: str) -> bool:
         # 简单判定；实际可根据站点模板进行自定义

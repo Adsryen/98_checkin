@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>登录 - 98 Checkin</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  </head>
+  <body>
+    <main class="container">
+      <h2>管理员登录</h2>
+      {% if error %}
+      <mark>{{ error }}</mark>
+      {% endif %}
+      {% if has_password %}
+      <form method="post" action="/login">
+        <label>
+          密码
+          <input type="password" name="password" required />
+        </label>
+        <button type="submit">登录</button>
+      </form>
+      {% else %}
+      <p>未设置管理员密码，直接进入设置页。</p>
+      <form method="post" action="/login">
+        <button type="submit">进入设置</button>
+      </form>
+      {% endif %}
+    </main>
+  </body>
+  </html>
+
+
+
+

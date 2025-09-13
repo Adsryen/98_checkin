@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>账号详情：{{ acc.name or ('账号' ~ (idx + 1)) }}</h2>
+
+<article>
+  <header><h3>基本信息</h3></header>
+  <ul>
+    <li>用户名：{{ acc.username or '—' }}</li>
+    <li>覆盖 base_url：{{ acc.base_url or '—' }}</li>
+    <li>覆盖 UA：{{ acc.user_agent or '—' }}</li>
+  </ul>
+
+  <form method="post" action="/accounts/{{ idx }}/run/checkin">
+    <button type="submit">手动执行签到</button>
+  </form>
+  <form method="post" action="/accounts/{{ idx }}/verify" style="margin-top: .5rem;">
+    <button type="submit">验证账号并拉取资料</button>
+  </form>
+</article>
+
+<article>
+  <header><h3>最近状态</h3></header>
+  {% set s = acc_state %}
+  <ul>
+    <li>登录：{% if s.last_login_ok is sameas(true) %}<span class="status-success">成功</span>{% elif s.last_login_ok is sameas(false) %}<span class="status-fail">失败</span>{% else %}<span class="status-pending">未执行</span>{% endif %} ｜ 时间：{{ s.last_login_time or '—' }}</li>
+    <li>每日签到：{% if s.last_checkin_ok is sameas(true) %}<span class="status-success">成功</span>{% elif s.last_checkin_ok is sameas(false) %}<span class="status-fail">失败</span>{% else %}<span class="status-pending">未执行</span>{% endif %} ｜ 信息：{{ s.last_checkin_msg or '' }} ｜ 时间：{{ s.last_checkin_time or '—' }}</li>
+  </ul>
+</article>
+
+<article>
+  <header><h3>资料</h3></header>
+  {% set p = acc_state.profile or acc_profile %}
+  <ul>
+    <li>用户组：{{ (acc_profile and acc_profile.user_group) or '—' }}</li>
+    <li>积分：{{ (acc_profile and acc_profile.points) is not none and acc_profile.points or '—' }}</li>
+    <li>金钱：{{ (acc_profile and acc_profile.money) is not none and acc_profile.money or '—' }}</li>
+    <li>色币：{{ (acc_profile and acc_profile.secoin) is not none and acc_profile.secoin or '—' }}</li>
+    <li>评分：{{ (acc_profile and acc_profile.score) is not none and acc_profile.score or '—' }}</li>
+  </ul>
+  <p class="xg1">通过“验证账号并拉取资料”更新。</p>
+</article>
+
+<article>
+  <header><h3>历史记录</h3></header>
+  <table>
+    <thead>
+      <tr><th>时间</th><th>动作</th><th>结果</th><th>信息</th></tr>
+    </thead>
+    <tbody>
+      {% for item in s.history or [] | reverse %}
+      <tr>
+        <td>{{ item.time }}</td>
+        <td>{{ item.action }}</td>
+        <td>{% if item.ok %}<span class="status-success">成功</span>{% else %}<span class="status-fail">失败</span>{% endif %}</td>
+        <td>{{ item.msg }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</article>
+
+<article>
+  <header><h3>日志</h3></header>
+  <pre>{% for l in s.logs or [] %}[{{ l.time }}] {{ l.text }}
+{% endfor %}</pre>
+</article>
+{% endblock %}
+
+

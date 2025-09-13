@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>98 Checkin</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+      html { font-size: 14px; }
+      @media (min-width: 1200px) { html { font-size: 15px; } }
+      body { line-height: 1.45; }
+      h1, h2, h3 { margin: 0.5rem 0 0.75rem; }
+      header { margin: 0.75rem 0 1rem; }
+      table th, table td { vertical-align: middle; }
+
+      /* Status tags */
+      .status-success { color: #0a7c2f; }
+      .status-fail { color: #b00020; }
+      .status-pending { color: #666; }
+      .tag { display: inline-flex; align-items: center; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.78rem; line-height: 1; border: 1px solid transparent; white-space: nowrap; }
+      /* refined colors */
+      .tag.success { color: #065f46; background: #d1fae5; border-color: #a7f3d0; }
+      .tag.fail { color: #b91c1c; background: #fee2e2; border-color: #fecaca; }
+      .tag.pending { color: #6b7280; background: #f3f4f6; border-color: #e5e7eb; }
+
+      /* Action bar and buttons */
+      .action-bar { display: flex; flex-wrap: nowrap; gap: 8px; align-items: center; justify-content: flex-start; white-space: nowrap; overflow-x: auto; scrollbar-width: thin; }
+      .action-bar > * { display: inline-flex; align-items: center; }
+      .action-bar form { margin: 0; }
+      .action-bar button { margin: 0; }
+      .btn { box-sizing: border-box; display: inline-flex !important; align-items: center; justify-content: center; padding: 0 12px; height: 30px; min-width: 0; border-radius: 8px; border: 1px solid var(--pico-muted-border-color); background: #fff; color: #111827; cursor: pointer; line-height: 1; }
+      .btn-sm { font-size: 12px; height: 28px; padding: 0 10px; min-width: 56px; }
+      .btn-primary { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #fff; border: none; }
+      .btn-secondary { background: #f6f7f9; border-color: #dcdfe4; color: #374151; }
+      .btn-ghost { background: transparent; border-color: transparent; color: #374151; }
+      .btn-danger { color: #b42318; background: #fdecec; border-color: #f7c8cb; }
+      .btn:disabled { opacity: .6; cursor: not-allowed; }
+    </style>
+    <script>
+      (function(){
+        try {
+          var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+            + '<circle cx="32" cy="12" r="12" fill="#ff7eb6"/>'
+            + '<circle cx="48" cy="24" r="12" fill="#ff7eb6"/>'
+            + '<circle cx="40" cy="48" r="12" fill="#ff7eb6"/>'
+            + '<circle cx="24" cy="48" r="12" fill="#ff7eb6"/>'
+            + '<circle cx="16" cy="24" r="12" fill="#ff7eb6"/>'
+            + '<circle cx="32" cy="32" r="7" fill="#ff2d8c"/>'
+            + '</svg>';
+          var base64 = (window.btoa ? window.btoa(svg) : null);
+          if (base64) {
+            var link = document.createElement('link');
+            link.rel = 'icon';
+            link.type = 'image/svg+xml';
+            link.href = 'data:image/svg+xml;base64,' + base64;
+            document.head.appendChild(link);
+          }
+        } catch (e) { /* ignore */ }
+      })();
+    </script>
+  </head>
+  <body>
+    <header class="container">
+      <nav>
+        <ul>
+          <li><strong>98 Checkin</strong></li>
+        </ul>
+        <ul>
+          <li><a href="/tasks">任务</a></li>
+          <li><a href="/accounts">账号</a></li>
+          <li><a href="/settings">设置</a></li>
+          <li><a href="/logout">退出</a></li>
+        </ul>
+      </nav>
+    </header>
+    <main class="container">
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+  </html>
+
+

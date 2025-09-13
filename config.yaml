@@ -1,0 +1,21 @@
+site:
+  base_url: https://www.sehuatang.net
+  mirror_urls: []
+  username: ''
+  password: ''
+  user_agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
+    like Gecko) Chrome/127.0 Safari/537.36
+  proxy: http://127.0.0.1:17890
+ai:
+  model: gpt-4o-mini
+  temperature: 0.5
+  max_tokens: 200
+bot:
+  dry_run: true
+  reply_enabled: false
+  reply_forums: []
+  signature: ''
+  daily_checkin_enabled: true
+server_port: 9898
+accounts: []
+db_path: ./data.sqlite3
