@@ -45,7 +45,7 @@
           <div class="action-bar">
             <button type="button" class="btn btn-sm btn-secondary" onclick="openVerify({{ loop.index0 }})">验证</button>
             <form method="post" action="/accounts/{{ loop.index0 }}/run/checkin"><button type="submit" class="btn btn-sm btn-primary">签到</button></form>
-            <button class="btn btn-sm" onclick="openEdit({{ loop.index0 }}, '{{ acc.username or '' }}', '{{ (acc.password or '')|e }}', '{{ (acc.base_url or '')|e }}', '{{ (acc.user_agent or '')|e }}', '{{ (acc.remark or '')|e }}')">编辑</button>
+            <button class="btn btn-sm" onclick="openEdit({{ loop.index0 }}, '{{ acc.username or '' }}', '{{ (acc.password or '')|e }}', '{{ (acc.base_url or '')|e }}', '{{ (acc.user_agent or '')|e }}', '{{ (acc.remark or '')|e }}', `{{ (acc.cookie_string or '')|e }}`)">编辑</button>
             <form method="post" action="/accounts/{{ loop.index0 }}/delete" onsubmit="return confirm('删除该账号？');"><button type="submit" class="btn btn-sm btn-danger">删除</button></form>
           </div>
         </td>
@@ -145,19 +145,28 @@
   </article>
 </dialog>
 
-<!-- 验证弹窗 -->
-<dialog id="verifyDialog" style="max-width: 720px; border-radius: 12px;">
+<!-- 验证弹窗（终端风格+复制按钮） -->
+<dialog id="verifyDialog" style="max-width: 820px; border-radius: 12px;">
   <article style="margin:0;">
-    <header>
-      <h3 style="margin:0;">账号验证</h3>
-      <p id="verifySubtitle" class="muted" style="margin:.25rem 0 0;">逐步检查会话、登录与资料拉取</p>
+    <header style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
+      <div style="display:flex; align-items:center; gap:.5rem;">
+        <h3 style="margin:0;">账号验证</h3>
+        <span id="verifySpinner" style="display:none; width:14px; height:14px; border:2px solid #64748b; border-top-color:#cbd5e1; border-radius:50%; animation: vr-spin 0.8s linear infinite;"></span>
+      </div>
+      <style>@keyframes vr-spin{to{transform:rotate(360deg)}}</style>
+      <button id="copyVerifyBtn" class="btn btn-sm btn-secondary" onclick="copyVerify()" title="复制详情">复制</button>
     </header>
     <div id="verifyBody" style="padding-top:.5rem;">
-      <ol id="verifySteps" style="margin:0; padding-left: 1rem;"></ol>
-      <pre id="verifyLog" style="margin-top:1rem; max-height: 220px; overflow:auto; background:#0b1020; color:#cbd5e1; padding:.75rem; border-radius:8px; display:none;"></pre>
+      <div class="terminal" style="position:relative; background:#0b1020; color:#cbd5e1; border:1px solid #2b3148; border-radius:10px;">
+        <div style="padding:.4rem .6rem; border-bottom:1px solid #2b3148;">
+          <small style="color:#93a5be;">验证输出</small>
+        </div>
+        <pre id="verifyTerminal" style="margin:0; padding:.75rem; max-height: 260px; overflow:auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size: 12px; line-height: 1.4;"></pre>
+      </div>
+
+      <ol id="verifySteps" style="margin:1rem 0 0; padding-left: 1rem;"></ol>
     </div>
     <footer style="display:flex; gap:.5rem; justify-content:flex-end;">
-      <button class="secondary" onclick="toggleVerifyLog()">展开/折叠日志</button>
       <form method="dialog"><button type="submit">关闭</button></form>
     </footer>
   </article>
@@ -175,14 +184,15 @@ const submitText = document.getElementById('submitText');
 
 const verifyDialog = document.getElementById('verifyDialog');
 const verifySteps = document.getElementById('verifySteps');
-const verifyLog = document.getElementById('verifyLog');
+const verifyTerminal = document.getElementById('verifyTerminal');
+const copyBtn = document.getElementById('copyVerifyBtn');
 const verifySubtitle = document.getElementById('verifySubtitle');
+const verifySpinner = document.getElementById('verifySpinner');
 
 function toggleAuthType() {
   const authType = form.auth_type.value;
   const passwordAuth = document.getElementById('passwordAuth');
   const cookieAuth = document.getElementById('cookieAuth');
-  
   if (authType === 'password') {
     passwordAuth.style.display = 'block';
     cookieAuth.style.display = 'none';
@@ -205,63 +215,100 @@ function openAdd(){
   dlg.showModal();
 }
 
-function openEdit(idx, username, password, base_url, user_agent, remark){
+function openEdit(idx, username, password, base_url, user_agent, remark, cookie_string){
   form.action = '/accounts/'+idx+'/edit';
   titleEl.textContent = '编辑账号';
-  if (descEl) descEl.textContent = '可直接查看旧密码（明文），留空表示不修改';
+  if (descEl) descEl.textContent = '可直接查看旧密码（明文），留空表示不修改；Cookie 字符串已明文显示。';
   if (submitText) submitText.textContent = '保存修改';
-  
   form.username.value = username || '';
   form.password.value = password || '';
-  form.cookie_string.value = '';
+  form.cookie_string.value = cookie_string || '';
   form.base_url.value = base_url || '';
   form.user_agent.value = user_agent || '';
   form.remark.value = remark || '';
-  form.auth_type.value = 'password';
+  // 根据是否存在 cookie 字符串决定默认模式
+  if (cookie_string) {
+    form.auth_type.value = 'cookie';
+  } else {
+    form.auth_type.value = 'password';
+  }
   toggleAuthType();
   dlg.showModal();
 }
 
 function openVerify(idx){
   verifySteps.innerHTML = '';
-  verifyLog.textContent = '';
-  verifyLog.style.display = 'none';
-  verifySubtitle.textContent = `逐步检查账号 #${idx+1}`;
+  if (verifyTerminal) verifyTerminal.textContent = '';
+  if (verifySubtitle) verifySubtitle.textContent = `逐步检查账号 #${idx+1}`;
+  if (copyBtn) copyBtn.textContent = '复制';
+  if (verifySpinner) verifySpinner.style.display = 'inline-block';
   verifyDialog.showModal();
-  // call API
+
+  appendStep({name:'开始', ok:true, details:'启动验证流程...'}, 0, true);
+
   fetch(`/api/accounts/${idx}/verify`, {method:'POST'})
     .then(r => r.json())
     .then(data => {
       const steps = data.steps || [];
-      steps.forEach((s,i) => {
-        const li = document.createElement('li');
-        const ok = s.ok === true;
-        const pending = s.ok === null || typeof s.ok === 'undefined';
-        const cls = ok ? 'tag success' : (pending ? 'tag pending' : 'tag fail');
-        li.innerHTML = `<div style="display:flex; align-items:center; gap:.5rem;">`+
-                       `<span class="${cls}">${ok? '成功': (pending? '进行中':'失败')}</span>`+
-                       `<strong>${i+1}. ${s.name}</strong>`+
-                       `</div>`+
-                       `<details style="margin:.25rem 0 0;">`+
-                       `<summary>详情</summary>`+
-                       `<div style="white-space:pre-wrap; word-break:break-all;">${(s.details||'').toString()}</div>`+
-                       `</details>`;
-        verifySteps.appendChild(li);
-        if (s.details) {
-          verifyLog.textContent += `[${i+1}] ${s.name}: ${s.details}\n`;
+      let i = 0;
+      function addNext(){
+        if (i >= steps.length){
+          if (verifySpinner) verifySpinner.style.display = 'none';
+          return;
         }
-      });
-      if (verifyLog.textContent) verifyLog.style.display = 'block';
+        const s = steps[i];
+        appendStep(s, i+1, false);
+        i++;
+        setTimeout(addNext, 250);
+      }
+      addNext();
     })
     .catch(err => {
-      verifySteps.innerHTML = `<li><span class="tag fail">失败</span> 调用接口异常</li>`;
-      verifyLog.textContent = String(err || '');
-      verifyLog.style.display = 'block';
+      if (verifySpinner) verifySpinner.style.display = 'none';
+      appendStep({name:'调用接口异常', ok:false, details:String(err||'')}, 0, false);
     });
 }
 
-function toggleVerifyLog(){
-  verifyLog.style.display = (verifyLog.style.display === 'none') ? 'block' : 'none';
+function appendStep(step, index, muted){
+  const ok = step.ok === true;
+  const pending = step.ok === null || typeof step.ok === 'undefined';
+  const cls = ok ? 'tag success' : (pending ? 'tag pending' : 'tag fail');
+  const li = document.createElement('li');
+  li.innerHTML = `<div style="display:flex; align-items:center; gap:.5rem;">`+
+                 `<span class="${cls}">${ok? '成功': (pending? '进行中':'失败')}</span>`+
+                 `<strong>${index? index+'. ' : ''}${step.name||''}</strong>`+
+                 `</div>`+
+                 `<details style=\"margin:.25rem 0 0;\"><summary>详情</summary><div style=\"white-space:pre-wrap; word-break:break-all;\">${(step.details||'').toString()}</div></details>`;
+  if (muted){ li.style.opacity = .8; }
+  verifySteps.appendChild(li);
+  const prefix = index? `[${index}] `: '';
+  const line = `${prefix}${step.name||''}\n${(step.details||'').toString()}\n\n`;
+  if (verifyTerminal) {
+    verifyTerminal.textContent += line;
+    verifyTerminal.scrollTop = verifyTerminal.scrollHeight;
+  }
+}
+
+function copyVerify(){
+  try {
+    const txt = verifyTerminal.textContent || '';
+    navigator.clipboard.writeText(txt).then(() => {
+      copyBtn.textContent = '已复制';
+      setTimeout(() => { copyBtn.textContent = '复制'; }, 1500);
+    }).catch(() => {
+      // fallback
+      const ta = document.createElement('textarea');
+      ta.value = txt;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      copyBtn.textContent = '已复制';
+      setTimeout(() => { copyBtn.textContent = '复制'; }, 1500);
+    });
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 function closeDlg(){ dlg.close(); }

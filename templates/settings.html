@@ -2,17 +2,30 @@
 {% block content %}
 <h2>后台设置</h2>
 
+<style>
+  /* Scoped to settings page */
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1rem;
+  }
+  .settings-grid label { width: 100%; }
+  .settings-grid input[type="text"] { width: 100%; }
+  .settings-grid textarea { width: 100%; }
+  .section { margin: 1rem 0 1.25rem; }
+</style>
+
 {% if saved %}
 <p class="muted" style="background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; padding:.5rem .75rem; border-radius:8px;">已保存配置（如被环境变量覆盖，请检查下方提示；重启后生效更稳妥）。</p>
 {% endif %}
 
-<article>
+<article class="section">
   <header>
     <h3>站点设置</h3>
-    <small class="muted">可配置默认的 98 网址与代理（如设置了环境变量将优先生效）</small>
+    <small class="muted">可配置默认的 98 网址、代理与 User-Agent（如设置了环境变量将优先生效）</small>
   </header>
   <form method="post" action="/settings">
-    <fieldset class="grid">
+    <fieldset class="settings-grid">
       <label>
         默认站点 base_url
         <input type="text" name="site_base_url" value="{{ cfg.site.base_url }}" placeholder="https://www.sehuatang.net" />
@@ -23,12 +36,17 @@
         <input type="text" name="site_proxy" value="{{ cfg.site.proxy or '' }}" placeholder="http://127.0.0.1:7890" />
         {% if env_overrides.proxy %}<small class="muted">当前被环境变量（SITE_PROXY/HTTP_PROXY/HTTPS_PROXY）覆盖：{{ env_overrides.proxy }}</small>{% endif %}
       </label>
+      <label style="grid-column: 1 / -1;">
+        默认 User-Agent
+        <input type="text" name="site_user_agent" value="{{ cfg.site.user_agent }}" placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0" />
+        {% if env_overrides.ua %}<small class="muted">当前被环境变量 SITE_UA 覆盖：{{ env_overrides.ua }}</small>{% endif %}
+      </label>
     </fieldset>
 
-    <header>
+    <header class="section">
       <h3>机器人设置</h3>
     </header>
-    <fieldset>
+    <fieldset class="settings-grid">
       <label>
         签名
         <input type="text" name="signature" value="{{ cfg.bot.signature }}" />
@@ -46,7 +64,7 @@
   </form>
 </article>
 
-<article>
+<article class="section">
   <header><h3>运行</h3></header>
   <p>使用顶部导航“任务”查看和触发签到。</p>
 </article>
