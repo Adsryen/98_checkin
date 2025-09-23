@@ -14,6 +14,14 @@ ai:
   temperature: 0.5
   max_tokens: 200
 
+# 浏览器（Playwright）设置
+browser:
+  enabled: false       # 开启后使用浏览器自动化代替 requests
+  headless: true       # 无头运行；本地调试可改为 false
+  slow_mo_ms: 0        # 调试时可设为 50-200 观察执行
+  timeout_ms: 20000    # 默认超时（毫秒）
+  engine: "chromium"   # 可选：chromium, firefox, webkit（建议 chromium）
+
 bot:
   dry_run: true
   reply_enabled: false

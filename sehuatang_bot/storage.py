@@ -92,6 +92,19 @@ class Storage:
                 );
                 """
             )
+            # 已使用的帖子（避免二次使用）
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS used_threads (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  fid INTEGER NOT NULL,
+                  tid INTEGER NOT NULL,
+                  url TEXT,
+                  used_at REAL NOT NULL,
+                  UNIQUE(fid, tid)
+                );
+                """
+            )
 
     # ---- Accounts ----
     def list_accounts(self) -> List[Dict[str, Any]]:
@@ -323,5 +336,33 @@ class Storage:
             self.add_account(a)
             cnt += 1
         return cnt
+
+    # ---- Used threads ----
+    def has_used_thread(self, fid: int, tid: int) -> bool:
+        cur = self._conn.execute("SELECT 1 FROM used_threads WHERE fid = ? AND tid = ?", (fid, tid))
+        return cur.fetchone() is not None
+
+    def mark_thread_used(self, fid: int, tid: int, url: Optional[str] = None) -> None:
+        ts = time.time()
+        with self._conn:
+            self._conn.execute(
+                "INSERT OR IGNORE INTO used_threads (fid, tid, url, used_at) VALUES (?, ?, ?, ?)",
+                (fid, tid, url, ts),
+            )
+
+    def list_recent_used_threads(self, limit: int = 100) -> List[Dict[str, Any]]:
+        cur = self._conn.execute(
+            "SELECT fid, tid, url, used_at FROM used_threads ORDER BY used_at DESC LIMIT ?",
+            (limit,),
+        )
+        rows = []
+        for r in cur.fetchall():
+            rows.append({
+                "fid": r["fid"],
+                "tid": r["tid"],
+                "url": r["url"],
+                "used_at": r["used_at"],
+            })
+        return rows
 
 

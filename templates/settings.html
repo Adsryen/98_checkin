@@ -59,6 +59,11 @@
         <input type="checkbox" name="daily_checkin_enabled" {% if cfg.bot.daily_checkin_enabled %}checked{% endif %} />
         启用每日签到
       </label>
+      <label style="grid-column: 1 / -1;">
+        随机抽帖版块ID（fid，多个用逗号或空格分隔）
+        <input type="text" name="random_forums" value="{{ (cfg.bot.random_forums | map('string') | list) | join(', ') }}" placeholder="如：2, 41, 155" />
+        <small class="muted">后台会先随机 fid，再在该版块随机选取“未使用过”的帖子。</small>
+      </label>
     </fieldset>
     <button type="submit">保存</button>
   </form>

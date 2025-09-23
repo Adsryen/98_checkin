@@ -32,6 +32,15 @@ class BotConfig(BaseModel):
     reply_forums: List[int] = Field(default_factory=list, description="允许自动回帖的版块ID白名单，空为不限制")
     signature: str = Field(default="", description="附加在回复末尾的签名")
     daily_checkin_enabled: bool = Field(default=True)
+    random_forums: List[int] = Field(default_factory=list, description="用于随机抽取帖子的版块ID列表（fid），可设置多个")
+
+
+class BrowserConfig(BaseModel):
+    enabled: bool = Field(default=False, description="是否启用 Playwright 浏览器自动化")
+    headless: bool = Field(default=True, description="是否无头运行")
+    slow_mo_ms: int = Field(default=0, description="慢动作毫秒（调试用）")
+    timeout_ms: int = Field(default=20000, description="页面/操作默认超时时间（毫秒）")
+    engine: str = Field(default="chromium", description="浏览器内核：chromium/firefox/webkit")
 
 
 class AccountConfig(BaseModel):
@@ -50,6 +59,7 @@ class AppConfig(BaseModel):
     site: SiteConfig
     ai: OpenAIConfig
     bot: BotConfig = Field(default_factory=BotConfig)
+    browser: BrowserConfig = Field(default_factory=BrowserConfig)
     server_port: int = Field(default=9898, description="Web服务端口，默认9898")
     admin_password: Optional[str] = Field(default=None, description="后台管理员密码；若为空则仅本地访问允许设置")
     accounts: List[AccountConfig] = Field(default_factory=list, description="多账号列表；为空时使用全局site.username/password")
@@ -129,9 +139,29 @@ def load_config(path: Optional[str] = None) -> AppConfig:
     if os.getenv("BOT_DAILY_CHECKIN_ENABLED"):
         bot["daily_checkin_enabled"] = os.getenv("BOT_DAILY_CHECKIN_ENABLED").lower() in ("1", "true", "yes")
 
+    # BROWSER_
+    browser = data.get("browser", {})
+    if os.getenv("BROWSER_ENABLED"):
+        browser["enabled"] = os.getenv("BROWSER_ENABLED").lower() in ("1", "true", "yes")
+    if os.getenv("BROWSER_HEADLESS"):
+        browser["headless"] = os.getenv("BROWSER_HEADLESS").lower() in ("1", "true", "yes")
+    if os.getenv("BROWSER_SLOW_MO_MS"):
+        try:
+            browser["slow_mo_ms"] = int(os.getenv("BROWSER_SLOW_MO_MS"))
+        except Exception:
+            pass
+    if os.getenv("BROWSER_TIMEOUT_MS"):
+        try:
+            browser["timeout_ms"] = int(os.getenv("BROWSER_TIMEOUT_MS"))
+        except Exception:
+            pass
+    if os.getenv("BROWSER_ENGINE"):
+        browser["engine"] = os.getenv("BROWSER_ENGINE")
+
     data["site"] = site
     data["ai"] = ai
     data.setdefault("bot", bot)
+    data.setdefault("browser", browser)
     # accounts 加载并兜底
     accounts = data.get("accounts") or []
     if isinstance(accounts, list) is False:

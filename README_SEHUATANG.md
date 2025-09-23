@@ -144,6 +144,76 @@ docker run --rm sehuatang-bot:latest login
 - `Dockerfile`：容器构建文件
 - `requirements.txt`：依赖
 
+## 浏览器模式（Playwright）
+
+为应对部分站点的 JS 校验/重定向/反爬策略，项目支持 Playwright 浏览器自动化模式。开启后，登录、签到、回帖等动作通过浏览器完成，更稳定可靠。
+
+### 本地使用
+
+1. 安装依赖
+
+```bash
+pip install -r requirements.txt
+python -m playwright install chromium  # 只需安装 Chromium
+```
+
+2. 启用浏览器模式
+
+在 `config.yaml` 中添加（或修改）：
+
+```yaml
+browser:
+  enabled: true
+  headless: true        # 本地调试可改为 false
+  slow_mo_ms: 0         # 调试时可设为 50-200 观察执行
+  timeout_ms: 20000
+  engine: chromium      # 建议使用 chromium
+```
+
+也可通过环境变量临时覆盖：
+
+```bash
+export BROWSER_ENABLED=true
+export BROWSER_HEADLESS=false
+export BROWSER_SLOW_MO_MS=150
+```
+
+3. 运行示例
+
+```bash
+python -m sehuatang_bot --config config.yaml login
+python -m sehuatang_bot --config config.yaml checkin
+python -m sehuatang_bot --config config.yaml run-all
+python -m sehuatang_bot --config config.yaml serve  # 启动Web页面
+```
+
+### Docker 使用（浏览器模式）
+
+`Dockerfile` 已内置 Playwright 与 Chromium 的安装：
+
+```bash
+docker build -t sehuatang-bot:latest .
+
+# 建议增加共享内存，避免 /dev/shm 太小造成浏览器崩溃
+docker run --rm \
+  --shm-size=1g \
+  -e BROWSER_ENABLED=true \
+  -e SITE_BASE_URL="https://www.sehuatang.net" \
+  -e SITE_USERNAME="your_username" \
+  -e SITE_PASSWORD="your_password" \
+  sehuatang-bot:latest
+```
+
+注意：
+- 镜像默认仅安装 Chromium。如需 Firefox/WebKit，请修改 Dockerfile 中的安装命令为 `playwright install --with-deps firefox` 或安装多个内核。
+- 如需中文渲染，镜像已安装 `fonts-noto-cjk`。
+- 如需代理，设置 `SITE_PROXY`（或 `HTTP_PROXY/HTTPS_PROXY`）。
+
+### 兼容性说明
+
+- 浏览器模式与原有的 `requests` 直连模式可通过 `browser.enabled` 开关切换；逻辑与 CLI/Web 接口不变。
+- 浏览器模式下我们在页面上下文内通过 `fetch` 提交表单，以确保 Cookie 自动携带，适配更多站点插件。
+
 ## 免责声明
 
 - 请遵守目标站点的服务条款与法律法规，避免频繁请求与刷帖行为。

@@ -19,6 +19,8 @@ def create_app(cfg: AppConfig, state: StateStore) -> FastAPI:
     app = FastAPI(title="98 Checkin", version="0.1.0")
 
     templates = Jinja2Templates(directory="templates")
+    # 提供本地静态资源（样式/图片等），用于CDN不可达时的回退
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
     storage = Storage(cfg.db_path)
     # 首次导入旧配置中的 accounts（仅当DB为空）
@@ -89,6 +91,18 @@ def create_app(cfg: AppConfig, state: StateStore) -> FastAPI:
         signature = (form.get("signature") or cfg.bot.signature).strip()
         dry_run = True if (form.get("dry_run") == "on") else False
         daily_checkin_enabled = True if (form.get("daily_checkin_enabled") == "on") else False
+        # random_forums: 逗号/空格分隔
+        rf_text = (form.get("random_forums") or "").strip()
+        # 更稳健：从文本中提取所有数字，支持中文逗号/顿号/空格等任意分隔
+        import re as _re
+        rf_numbers = _re.findall(r"\d+", rf_text)
+        rf_list = []
+        seen = set()
+        for n in rf_numbers:
+            v = int(n)
+            if v not in seen:
+                rf_list.append(v)
+                seen.add(v)
         # 站点配置（base_url / proxy / user_agent）
         site_base_url = (form.get("site_base_url") or cfg.site.base_url).strip()
         site_proxy = (form.get("site_proxy") or "").strip() or None
@@ -97,6 +111,7 @@ def create_app(cfg: AppConfig, state: StateStore) -> FastAPI:
         cfg.bot.signature = signature
         cfg.bot.dry_run = dry_run
         cfg.bot.daily_checkin_enabled = daily_checkin_enabled
+        cfg.bot.random_forums = rf_list
         cfg.site.base_url = site_base_url
         cfg.site.proxy = site_proxy
         cfg.site.user_agent = site_user_agent
@@ -117,6 +132,70 @@ def create_app(cfg: AppConfig, state: StateStore) -> FastAPI:
         ok2, msg = r.daily_checkin()
         state.record_checkin(ok2, msg)
         return JSONResponse({"ok": ok2, "message": msg})
+
+    @app.post("/api/random-thread")
+    async def api_random_thread(request: Request, _=Depends(verify_admin)):
+        # 使用配置中的随机版块列表，或由请求体覆盖
+        fids = cfg.bot.random_forums[:] if cfg.bot.random_forums else []
+        # 可选参数：fid（单个）、fids（数组）、max_pages_scan, max_trials_per_forum
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        # 覆盖 fid/fids
+        if isinstance(body, dict):
+            if body.get("fid") is not None:
+                try:
+                    fids = [int(body.get("fid"))]
+                except Exception:
+                    pass
+            elif body.get("fids") and isinstance(body.get("fids"), list):
+                try:
+                    fids = [int(x) for x in body.get("fids") if str(x).isdigit()]
+                except Exception:
+                    pass
+        if not fids:
+            return JSONResponse({"ok": False, "message": "请先在设置中填写随机抽帖的 fid 列表，或在请求体提供 fid/fids"}, status_code=400)
+        mps = body.get("max_pages_scan") if isinstance(body, dict) else None
+        mtp = body.get("max_trials_per_forum") if isinstance(body, dict) else None
+        try:
+            max_pages_scan = int(mps) if mps is not None else 30
+        except Exception:
+            max_pages_scan = 30
+        try:
+            max_trials_per_forum = int(mtp) if mtp is not None else 12
+        except Exception:
+            max_trials_per_forum = 12
+        # 随机选择一个账户（若无账户，则回退到全局 Runner）
+        storage = Storage(cfg.db_path)
+        accounts = storage.list_accounts()
+        import random as _random
+        if accounts:
+            acc = _random.choice(accounts)
+            runner = AccountRunner(cfg, account=acc)
+        else:
+            runner = Runner(cfg)
+        if not runner.login():
+            return JSONResponse({"ok": False, "message": "登录失败"}, status_code=401)
+        picked = runner.pick_random_thread(fids, max_trials_per_forum=max_trials_per_forum, max_pages_scan=max_pages_scan)
+        if not picked:
+            return JSONResponse({"ok": False, "message": "未找到可用的新帖子（可能都被使用或需要更大页范围）"}, status_code=404)
+        fid, tid, url = picked
+        # url 可能已是完整URL；若是相对路径则补全
+        full_url = runner.http.url(url)
+        # 返回使用的账号信息（若有）
+        used_account = None
+        try:
+            if isinstance(runner, AccountRunner):
+                used_account = {
+                    "id": acc.get("id"),
+                    "username": acc.get("username"),
+                    "remark": acc.get("remark") or acc.get("name"),
+                    "base_url": acc.get("base_url") or cfg.site.base_url,
+                }
+        except Exception:
+            used_account = None
+        return JSONResponse({"ok": True, "fid": fid, "tid": tid, "url": full_url, "account": used_account})
 
     @app.post("/run/checkin")
     async def run_checkin_form(_=Depends(verify_admin)):

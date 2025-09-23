@@ -1,0 +1,50 @@
+/* Minimal Pico-like fallback styles for offline/blocked CDN */
+:root{--bg:#fff;--fg:#111827;--muted:#6b7280;--border:#e5e7eb;--primary:#6366f1;--primary2:#8b5cf6;--danger:#b42318}
+/* 强制暗色（用户选择 data-theme=dark） */
+html[data-theme="dark"]{--bg:#0f172a;--fg:#e5e7eb;--muted:#9ca3af;--border:#1f2a44}
+/* 自动模式下跟随系统暗色 */
+@media (prefers-color-scheme: dark){:root{--bg:#0f172a;--fg:#e5e7eb;--muted:#9ca3af;--border:#1f2a44}}
+*{box-sizing:border-box}
+html{font-size:14px}
+@media (min-width:1200px){html{font-size:15px}}
+body{margin:0;background:var(--bg);color:var(--fg);line-height:1.45;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,'Noto Sans SC','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif}
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+.container{max-width:1120px;margin:0 auto;padding:0 16px}
+header{margin:12px 0 16px}
+nav{display:flex;align-items:center;justify-content:space-between}
+nav ul{display:flex;gap:12px;list-style:none;margin:0;padding:0}
+nav li{display:flex}
+nav a{padding:6px 10px;border-radius:8px;color:#374151}
+nav a:hover{background:#f3f4f6}
+
+h1,h2,h3{margin:8px 0 12px}
+
+/* Table */
+table{width:100%;border-collapse:collapse;margin:10px 0 16px}
+th,td{padding:10px 8px;border-bottom:1px solid var(--border);text-align:left}
+th{font-weight:600;background:#fafafa}
+
+/* Buttons */
+button,.btn{display:inline-flex;align-items:center;justify-content:center;height:30px;padding:0 12px;border-radius:8px;border:1px solid #dcdfe4;background:#fff;color:#111827;cursor:pointer}
+.btn-primary{background:linear-gradient(135deg,var(--primary) 0%,var(--primary2) 100%);color:#fff;border:none}
+.btn-secondary{background:#f6f7f9;border-color:#dcdfe4;color:#374151}
+.btn-danger{color:var(--danger);background:#fdecec;border-color:#f7c8cb}
+button:disabled,.btn:disabled{opacity:.6;cursor:not-allowed}
+
+/* Forms */
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;color:inherit}
+label{display:block;margin:8px 0 6px;color:#374151;font-weight:500}
+form{margin:12px 0}
+
+/* Cards */
+.card{border:1px solid var(--border);border-radius:12px;padding:14px;background:#fff}
+
+/* Utilities */
+.flex{display:flex}
+.items-center{align-items:center}
+.justify-between{justify-content:space-between}
+.gap-2{gap:8px}
+.mt-1{margin-top:8px}
+.mt-2{margin-top:12px}
+.mt-3{margin-top:16px}

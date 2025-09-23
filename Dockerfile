@@ -8,15 +8,20 @@ WORKDIR /app
 
 # 系统依赖（如需可按需扩展）
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl && \
+    ca-certificates curl \
+    fonts-noto-cjk && \
     rm -rf /var/lib/apt/lists/*
 
 # 复制依赖并安装
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
+# 安装 Playwright 浏览器及其依赖（仅安装 Chromium）
+RUN python -m playwright install --with-deps chromium
 
-# 复制源码与示例配置
+# 复制源码、模板、静态资源与示例配置
 COPY sehuatang_bot /app/sehuatang_bot
+COPY templates /app/templates
+COPY static /app/static
 COPY config.example.yaml /app/config.example.yaml
 
 # 缺省环境变量（可在运行时覆盖）
@@ -36,6 +41,12 @@ ENV CONFIG_PATH=/app/config.yaml \
     BOT_REPLY_FORUMS= \
     BOT_SIGNATURE="—— 来自自动化小助手" \
     BOT_DAILY_CHECKIN_ENABLED=true
+# Playwright 相关（可通过环境变量切换）
+ENV BROWSER_ENABLED=false \
+    BROWSER_HEADLESS=true \
+    BROWSER_SLOW_MO_MS=0 \
+    BROWSER_TIMEOUT_MS=20000 \
+    BROWSER_ENGINE=chromium
 
 ENTRYPOINT ["python", "-m", "sehuatang_bot"]
 CMD ["run-all"]

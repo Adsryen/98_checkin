@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 from .http_client import HttpClient
 
@@ -158,3 +158,99 @@ class DiscuzClient:
             if any(x in rr.text for x in ["发布成功", "回帖成功", "非常感谢", "查看自己的帖子"]):
                 return True, "回帖成功"
         return False, "回帖失败或触发限制"
+
+    # ---- Forum scraping helpers ----
+    def forum_max_page(self, fid: int) -> int:
+        r = self.http.get(f"/forum.php?mod=forumdisplay&fid={fid}")
+        if r.status_code != 200:
+            return 1
+        import re as _re
+        m = _re.search(r"/forum\\.php\?mod=forumdisplay&fid=\d+&amp;page=(\d+)", r.text)
+        last = 1
+        if m:
+            try:
+                last = int(m.group(1))
+            except Exception:
+                last = 1
+        # 进一步尝试 class="last">... N
+        m2 = _re.search(r"class=\"last\">\\.\\.\\.\s*(\d+)<", r.text)
+        if m2:
+            try:
+                last = max(last, int(m2.group(1)))
+            except Exception:
+                pass
+        return last if last >= 1 else 1
+
+    def threads_on_page(self, fid: int, page: int) -> List[Tuple[int, str]]:
+        url = f"/forum.php?mod=forumdisplay&fid={fid}&page={page}"
+        r = self.http.get(url)
+        if r.status_code != 200:
+            return []
+        import re as _re
+        html = r.text
+        # 优先：仅解析普通主题 tbody：id="normalthread_XXXX"
+        threads: List[Tuple[int, str]] = []
+        for block in _re.finditer(r"<tbody\\s+id=\"normalthread_(\\d+)\">([\\s\\S]*?)</tbody>", html):
+            tid_str, chunk = block.group(1), block.group(2)
+            try:
+                tid = int(tid_str)
+            except Exception:
+                continue
+            m = _re.search(r"href=\"((?:/)?forum\\.php\?mod=viewthread(?:&|&amp;)tid=(\\d+)[^\"]*)\"", chunk)
+            if m:
+                href = m.group(1)
+                threads.append((tid, href))
+        # 兜底：解析 a.s.xst 标题链接（Discuz 通用）
+        if not threads:
+            for m in _re.finditer(r"<a[^>]+class=\"[^\"]*\\bxst\\b[^\"]*\"[^>]+href=\"((?:/)?forum\\.php\?mod=viewthread(?:&|&amp;)tid=(\\d+)[^\"]*)\"", html):
+                href, tid_str = m.group(1), m.group(2)
+                try:
+                    tid = int(tid_str)
+                except Exception:
+                    continue
+                threads.append((tid, href))
+        # 再兜底：页面上任何 viewthread 链接
+        if not threads:
+            for m in _re.finditer(r"href=\"((?:/)?forum\\.php\?mod=viewthread(?:&|&amp;)tid=(\\d+)[^\"]*)\"", html):
+                href, tid_str = m.group(1), m.group(2)
+                try:
+                    tid = int(tid_str)
+                except Exception:
+                    continue
+                threads.append((tid, href))
+        # 最后兜底：伪静态 thread-<tid>-1-1.html
+        if not threads:
+            for m in _re.finditer(r"href=\"(/thread-(\\d+)-\\d+-\\d+\\.html)\"", html):
+                href, tid_str = m.group(1), m.group(2)
+                try:
+                    tid = int(tid_str)
+                except Exception:
+                    continue
+                threads.append((tid, href))
+        # 归一化：补全前导斜杠，去重
+        seen = set()
+        norm: List[Tuple[int, str]] = []
+        for tid, href in threads:
+            if not href.startswith("/"):
+                href = "/" + href
+            key = (tid, href)
+            if key in seen:
+                continue
+            seen.add(key)
+            norm.append((tid, href))
+        return norm
+
+    def validate_thread(self, tid: int, href: Optional[str] = None) -> Optional[str]:
+        # href 可能是相对路径且带有 &amp;，需要还原
+        path = (href or f"/forum.php?mod=viewthread&tid={tid}").replace("&amp;", "&")
+        r = self.http.get(path)
+        if r.status_code != 200:
+            return None
+        bad = ["不存在", "无权", "删除", "错误", "小黑屋", "抱歉"]
+        if any(b in r.text for b in bad):
+            return None
+        # 返回最终URL（可能已跳转到伪静态 thread-xxxx-1-1.html）
+        try:
+            return str(r.url)
+        except Exception:
+            return f"/forum.php?mod=viewthread&tid={tid}"

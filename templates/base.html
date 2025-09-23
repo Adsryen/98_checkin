@@ -4,6 +4,25 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>98 Checkin</title>
+    <!-- 提前设置主题，避免首次渲染闪烁 -->
+    <script>
+      (function(){
+        try {
+          var t = localStorage.getItem('theme') || 'auto';
+          if (t === 'auto') {
+            document.documentElement.removeAttribute('data-theme');
+          } else {
+            document.documentElement.setAttribute('data-theme', t);
+          }
+        } catch (e) {
+          // 默认跟随系统
+          document.documentElement.removeAttribute('data-theme');
+        }
+      })();
+    </script>
+    <!-- 本地回退样式（CDN 不可达时仍有基本样式） -->
+    <link rel="stylesheet" href="{{ url_for('static', path='pico.min.css') }}">
+    <!-- CDN 样式：可用时覆盖本地回退样式，获得更完整的 UI -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <style>
       html { font-size: 14px; }
@@ -28,13 +47,46 @@
       .action-bar > * { display: inline-flex; align-items: center; }
       .action-bar form { margin: 0; }
       .action-bar button { margin: 0; }
-      .btn { box-sizing: border-box; display: inline-flex !important; align-items: center; justify-content: center; padding: 0 12px; height: 30px; min-width: 0; border-radius: 8px; border: 1px solid var(--pico-muted-border-color); background: #fff; color: #111827; cursor: pointer; line-height: 1; }
+      .btn { box-sizing: border-box; display: inline-flex !important; align-items: center; justify-content: center; padding: 0 12px; height: 30px; min-width: 0; border-radius: 8px; border: 1px solid #dcdfe4; background: #fff; color: #111827; cursor: pointer; line-height: 1; }
       .btn-sm { font-size: 12px; height: 28px; padding: 0 10px; min-width: 56px; }
       .btn-primary { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #fff; border: none; }
       .btn-secondary { background: #f6f7f9; border-color: #dcdfe4; color: #374151; }
       .btn-ghost { background: transparent; border-color: transparent; color: #374151; }
       .btn-danger { color: #b42318; background: #fdecec; border-color: #f7c8cb; }
       .btn:disabled { opacity: .6; cursor: not-allowed; }
+
+      /* 暗色主题覆盖（自定义区域） */
+      /* 为浏览器原生控件提供颜色方案提示 */
+      html { color-scheme: light; }
+      html[data-theme="dark"] { color-scheme: dark; }
+      html[data-theme="dark"] body { background: #0f172a; color: #e5e7eb; }
+      html[data-theme="dark"] header nav a { color: #e5e7eb; }
+      html[data-theme="dark"] header nav a:hover { background: #111827; }
+      html[data-theme="dark"] .btn { background: #1f2937; color: #e5e7eb; border-color: #374151; }
+      html[data-theme="dark"] .btn-secondary { background: #111827; border-color: #374151; color: #e5e7eb; }
+      html[data-theme="dark"] .btn-ghost { color: #e5e7eb; }
+      html[data-theme="dark"] th { background: #0b1220; }
+      html[data-theme="dark"] .card { background: #0b1220; border-color: #1f2a44; }
+
+      html[data-theme="dark"] .tag.success { color: #86efac; background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.35); }
+      html[data-theme="dark"] .tag.fail { color: #fca5a5; background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.35); }
+      html[data-theme="dark"] .tag.pending { color: #9ca3af; background: rgba(107,114,128,.12); border-color: rgba(156,163,175,.35); }
+
+      /* 自动模式（未设置 data-theme 或设置为 auto）跟随系统暗色 */
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme]), html[data-theme="auto"] { color-scheme: dark; }
+        html:not([data-theme]) body, html[data-theme="auto"] body { background: #0f172a; color: #e5e7eb; }
+        html:not([data-theme]) header nav a, html[data-theme="auto"] header nav a { color: #e5e7eb; }
+        html:not([data-theme]) header nav a:hover, html[data-theme="auto"] header nav a:hover { background: #111827; }
+        html:not([data-theme]) .btn, html[data-theme="auto"] .btn { background: #1f2937; color: #e5e7eb; border-color: #374151; }
+        html:not([data-theme]) .btn-secondary, html[data-theme="auto"] .btn-secondary { background: #111827; border-color: #374151; color: #e5e7eb; }
+        html:not([data-theme]) .btn-ghost, html[data-theme="auto"] .btn-ghost { color: #e5e7eb; }
+        html:not([data-theme]) th, html[data-theme="auto"] th { background: #0b1220; }
+        html:not([data-theme]) .card, html[data-theme="auto"] .card { background: #0b1220; border-color: #1f2a44; }
+        html:not([data-theme]) .tag.success, html[data-theme="auto"] .tag.success { color: #86efac; background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.35); }
+        html:not([data-theme]) .tag.fail, html[data-theme="auto"] .tag.fail { color: #fca5a5; background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.35); }
+        html:not([data-theme]) .tag.pending, html[data-theme="auto"] .tag.pending { color: #9ca3af; background: rgba(107,114,128,.12); border-color: rgba(156,163,175,.35); }
+      }
     </style>
     <script>
       (function(){
@@ -69,6 +121,7 @@
           <li><a href="/tasks">任务</a></li>
           <li><a href="/accounts">账号</a></li>
           <li><a href="/settings">设置</a></li>
+          <li><button class="btn btn-sm btn-secondary" id="theme-toggle" type="button">主题: 自动</button></li>
           <li><a href="/logout">退出</a></li>
         </ul>
       </nav>
@@ -76,6 +129,45 @@
     <main class="container">
       {% block content %}{% endblock %}
     </main>
+    <script>
+      (function(){
+        const KEY = 'theme';
+        const doc = document.documentElement;
+        function setTheme(t, persist){
+          if (t === 'auto') {
+            doc.removeAttribute('data-theme');
+          } else {
+            doc.setAttribute('data-theme', t);
+          }
+          if (persist) {
+            try { localStorage.setItem(KEY, t); } catch (e) {}
+          }
+          updateLabel();
+        }
+        function getTheme(){
+          try { return localStorage.getItem(KEY) || 'auto'; } catch (e) { return 'auto'; }
+        }
+        function updateLabel(){
+          const btn = document.getElementById('theme-toggle');
+          if (!btn) return;
+          const cur = doc.getAttribute('data-theme') || 'auto';
+          const map = { light: '亮', dark: '暗', auto: '自动' };
+          btn.textContent = '主题: ' + (map[cur] || cur);
+        }
+        // 初始化
+        setTheme(getTheme(), false);
+        window.addEventListener('DOMContentLoaded', function(){
+          const btn = document.getElementById('theme-toggle');
+          if (!btn) return;
+          btn.addEventListener('click', function(){
+            const cur = doc.getAttribute('data-theme') || 'auto';
+            const next = cur === 'auto' ? 'dark' : (cur === 'dark' ? 'light' : 'auto');
+            setTheme(next, true);
+          });
+          updateLabel();
+        });
+      })();
+    </script>
   </body>
   </html>
 

@@ -16,6 +16,9 @@ bot:
   reply_forums: []
   signature: ''
   daily_checkin_enabled: true
+  random_forums:
+  - 2
+  - 155
 server_port: 9898
 accounts: []
 db_path: ./data.sqlite3
