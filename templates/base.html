@@ -32,6 +32,33 @@
       header { margin: 0.75rem 0 1rem; }
       table th, table td { vertical-align: middle; }
 
+      /* Brand palette and focus ring */
+      :root {
+        --brand-primary-start: #6366f1; /* indigo-500 */
+        --brand-primary-end: #8b5cf6;   /* violet-500 */
+        --brand-focus: #a78bfa;         /* violet-400 */
+      }
+
+      /* Light theme refinements */
+      header nav a:hover { background: #f2f4f8; }
+      table thead tr { background: #f9fafb; }
+      table tbody tr + tr { border-top: 1px solid #e5e7eb; }
+      table th, table td { border-bottom: 1px solid #e5e7eb; }
+      tbody tr:hover { background: #f9fafb; }
+
+      /* Buttons and interactions */
+      .btn { box-sizing: border-box; display: inline-flex !important; align-items: center; justify-content: center; padding: 0 12px; height: 30px; min-width: 0; border-radius: 8px; border: 1px solid #dcdfe4; background: #fff; color: #111827; cursor: pointer; line-height: 1; }
+      .btn-sm { font-size: 12px; height: 28px; padding: 0 10px; min-width: 56px; }
+      .btn-primary { background: linear-gradient(135deg, var(--brand-primary-start) 0%, var(--brand-primary-end) 100%); color: #fff; border: none; }
+      .btn-secondary { background: #f6f7f9; border-color: #dcdfe4; color: #374151; }
+      .btn-ghost { background: transparent; border-color: transparent; color: #374151; }
+      .btn-danger { color: #b42318; background: #fdecec; border-color: #f7c8cb; }
+      .btn:disabled { opacity: .6; cursor: not-allowed; }
+      .btn:hover { background: #f9fafb; border-color: #cfd5e3; }
+      .btn-primary:hover { filter: brightness(1.06); }
+      .btn-ghost:hover { background: rgba(0,0,0,.04); }
+      .btn:focus-visible { outline: 2px solid var(--brand-focus); outline-offset: 2px; }
+
       /* Status tags */
       .status-success { color: #0a7c2f; }
       .status-fail { color: #b00020; }
@@ -42,35 +69,37 @@
       .tag.fail { color: #b91c1c; background: #fee2e2; border-color: #fecaca; }
       .tag.pending { color: #6b7280; background: #f3f4f6; border-color: #e5e7eb; }
 
-      /* Action bar and buttons */
+      /* Action bar */
       .action-bar { display: flex; flex-wrap: nowrap; gap: 8px; align-items: center; justify-content: flex-start; white-space: nowrap; overflow-x: auto; scrollbar-width: thin; }
       .action-bar > * { display: inline-flex; align-items: center; }
       .action-bar form { margin: 0; }
       .action-bar button { margin: 0; }
-      .btn { box-sizing: border-box; display: inline-flex !important; align-items: center; justify-content: center; padding: 0 12px; height: 30px; min-width: 0; border-radius: 8px; border: 1px solid #dcdfe4; background: #fff; color: #111827; cursor: pointer; line-height: 1; }
-      .btn-sm { font-size: 12px; height: 28px; padding: 0 10px; min-width: 56px; }
-      .btn-primary { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #fff; border: none; }
-      .btn-secondary { background: #f6f7f9; border-color: #dcdfe4; color: #374151; }
-      .btn-ghost { background: transparent; border-color: transparent; color: #374151; }
-      .btn-danger { color: #b42318; background: #fdecec; border-color: #f7c8cb; }
-      .btn:disabled { opacity: .6; cursor: not-allowed; }
 
       /* 暗色主题覆盖（自定义区域） */
       /* 为浏览器原生控件提供颜色方案提示 */
       html { color-scheme: light; }
       html[data-theme="dark"] { color-scheme: dark; }
+      html[data-theme="dark"] { --pico-muted-border-color: #1f2a44; --pico-muted-color: #9ca3af; --pico-primary: #8b5cf6; }
       html[data-theme="dark"] body { background: #0f172a; color: #e5e7eb; }
       html[data-theme="dark"] header nav a { color: #e5e7eb; }
       html[data-theme="dark"] header nav a:hover { background: #111827; }
       html[data-theme="dark"] .btn { background: #1f2937; color: #e5e7eb; border-color: #374151; }
+      html[data-theme="dark"] .btn:hover { background: #273244; border-color: #41506c; }
       html[data-theme="dark"] .btn-secondary { background: #111827; border-color: #374151; color: #e5e7eb; }
       html[data-theme="dark"] .btn-ghost { color: #e5e7eb; }
       html[data-theme="dark"] th { background: #0b1220; }
       html[data-theme="dark"] .card { background: #0b1220; border-color: #1f2a44; }
+      html[data-theme="dark"] table th, html[data-theme="dark"] table td { border-bottom: 1px solid #1f2a44; }
+      html[data-theme="dark"] tbody tr:hover { background: #111827; }
 
       html[data-theme="dark"] .tag.success { color: #86efac; background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.35); }
       html[data-theme="dark"] .tag.fail { color: #fca5a5; background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.35); }
       html[data-theme="dark"] .tag.pending { color: #9ca3af; background: rgba(107,114,128,.12); border-color: rgba(156,163,175,.35); }
+
+      /* Status colors in dark */
+      html[data-theme="dark"] .status-success { color: #86efac; }
+      html[data-theme="dark"] .status-fail { color: #fca5a5; }
+      html[data-theme="dark"] .status-pending { color: #9ca3af; }
 
       /* 自动模式（未设置 data-theme 或设置为 auto）跟随系统暗色 */
       @media (prefers-color-scheme: dark) {
@@ -79,6 +108,7 @@
         html:not([data-theme]) header nav a, html[data-theme="auto"] header nav a { color: #e5e7eb; }
         html:not([data-theme]) header nav a:hover, html[data-theme="auto"] header nav a:hover { background: #111827; }
         html:not([data-theme]) .btn, html[data-theme="auto"] .btn { background: #1f2937; color: #e5e7eb; border-color: #374151; }
+        html:not([data-theme]) .btn:hover, html[data-theme="auto"] .btn:hover { background: #273244; border-color: #41506c; }
         html:not([data-theme]) .btn-secondary, html[data-theme="auto"] .btn-secondary { background: #111827; border-color: #374151; color: #e5e7eb; }
         html:not([data-theme]) .btn-ghost, html[data-theme="auto"] .btn-ghost { color: #e5e7eb; }
         html:not([data-theme]) th, html[data-theme="auto"] th { background: #0b1220; }
@@ -86,6 +116,9 @@
         html:not([data-theme]) .tag.success, html[data-theme="auto"] .tag.success { color: #86efac; background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.35); }
         html:not([data-theme]) .tag.fail, html[data-theme="auto"] .tag.fail { color: #fca5a5; background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.35); }
         html:not([data-theme]) .tag.pending, html[data-theme="auto"] .tag.pending { color: #9ca3af; background: rgba(107,114,128,.12); border-color: rgba(156,163,175,.35); }
+        html:not([data-theme]) table th, html[data-theme="auto"] table th,
+        html:not([data-theme]) table td, html[data-theme="auto"] table td { border-bottom: 1px solid #1f2a44; }
+        html:not([data-theme]) tbody tr:hover, html[data-theme="auto"] tbody tr:hover { background: #111827; }
       }
     </style>
     <script>
@@ -151,9 +184,24 @@
           const btn = document.getElementById('theme-toggle');
           if (!btn) return;
           const cur = doc.getAttribute('data-theme') || 'auto';
-          const map = { light: '亮', dark: '暗', auto: '自动' };
-          btn.textContent = '主题: ' + (map[cur] || cur);
+          const map = { light: '🌞 亮', dark: '🌙 暗', auto: 'A 自动' };
+          const label = map[cur] || cur;
+          btn.innerHTML = label;
+          btn.setAttribute('aria-label', '切换主题（当前：' + label.replace(/^[^\s]+\s?/, '') + '）');
+          btn.title = '点击切换主题（自动 ⇄ 暗 ⇄ 亮）';
         }
+        // 监听系统主题变化：仅在自动模式时响应
+        try {
+          const mql = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+          if (mql) {
+            const handler = function(){ if (getTheme() === 'auto') setTheme('auto', false); };
+            if (mql.addEventListener) {
+              mql.addEventListener('change', handler);
+            } else if (mql.addListener) {
+              mql.addListener(handler);
+            }
+          }
+        } catch (e) { /* ignore */ }
         // 初始化
         setTheme(getTheme(), false);
         window.addEventListener('DOMContentLoaded', function(){
