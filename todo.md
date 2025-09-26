@@ -9,6 +9,7 @@
 - [x] 实现OpenAI协议兼容的AI回复生成模块（自定义base_url与模型名）
 - [x] 实现Runner与CLI入口（run-all、login、checkin、reply-latest、dry-run）
 - [x] 编写README与示例配置说明
+- [x] 实现Web UI
 
 ---
 

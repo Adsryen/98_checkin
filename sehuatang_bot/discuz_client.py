@@ -4,6 +4,13 @@ import re
 from typing import Optional, Tuple, List
 
 from .http_client import HttpClient
+from .core.parsing import (
+    fetch_formhash as parse_fetch_formhash,
+    is_logged_in as parse_is_logged_in,
+    parse_forum_max_page_from_html,
+    parse_threads_from_html,
+    is_bad_thread_html,
+)
 
 
 class DiscuzClient:
@@ -19,13 +26,8 @@ class DiscuzClient:
         self.http = http
 
     def fetch_formhash(self, html: str) -> Optional[str]:
-        # 常见 formhash 提取
-        m = re.search(r'name="formhash"\s+value="([a-zA-Z0-9]{8})"', html)
-        if m:
-            return m.group(1)
-        # 备用：在 cookie 或脚本内可能出现
-        m2 = re.search(r'formhash=([a-zA-Z0-9]{8})', html)
-        return m2.group(1) if m2 else None
+        # 复用通用解析
+        return parse_fetch_formhash(html)
 
     def fetch_loginhash(self, html: str) -> Optional[str]:
         # Discuz 登录页通常包含 loginhash=xxxx
@@ -103,10 +105,16 @@ class DiscuzClient:
         return True, data
 
     def is_logged_in(self, html: str) -> bool:
-        # 简单判定；实际可根据站点模板进行自定义
-        if any(x in html for x in ["退出", "我的", "用户组", "控制面板"]):
-            return True
-        return False
+        # 复用通用解析
+        return parse_is_logged_in(html)
+
+    def check_logged_in(self) -> bool:
+        """通过访问首页判断当前会话是否已登录（适配 Cookie 场景）。"""
+        try:
+            home = self.http.get("/")
+            return (home.status_code == 200) and self.is_logged_in(home.text)
+        except Exception:
+            return False
 
     def try_checkin(self) -> Tuple[bool, str]:
         """尝试常见签到插件端点，返回 (成功与否, 信息)。"""
@@ -158,87 +166,20 @@ class DiscuzClient:
             if any(x in rr.text for x in ["发布成功", "回帖成功", "非常感谢", "查看自己的帖子"]):
                 return True, "回帖成功"
         return False, "回帖失败或触发限制"
-
     # ---- Forum scraping helpers ----
     def forum_max_page(self, fid: int) -> int:
         r = self.http.get(f"/forum.php?mod=forumdisplay&fid={fid}")
         if r.status_code != 200:
             return 1
-        import re as _re
-        m = _re.search(r"/forum\\.php\?mod=forumdisplay&fid=\d+&amp;page=(\d+)", r.text)
-        last = 1
-        if m:
-            try:
-                last = int(m.group(1))
-            except Exception:
-                last = 1
-        # 进一步尝试 class="last">... N
-        m2 = _re.search(r"class=\"last\">\\.\\.\\.\s*(\d+)<", r.text)
-        if m2:
-            try:
-                last = max(last, int(m2.group(1)))
-            except Exception:
-                pass
-        return last if last >= 1 else 1
+        return parse_forum_max_page_from_html(r.text)
 
     def threads_on_page(self, fid: int, page: int) -> List[Tuple[int, str]]:
         url = f"/forum.php?mod=forumdisplay&fid={fid}&page={page}"
         r = self.http.get(url)
         if r.status_code != 200:
             return []
-        import re as _re
         html = r.text
-        # 优先：仅解析普通主题 tbody：id="normalthread_XXXX"
-        threads: List[Tuple[int, str]] = []
-        for block in _re.finditer(r"<tbody\\s+id=\"normalthread_(\\d+)\">([\\s\\S]*?)</tbody>", html):
-            tid_str, chunk = block.group(1), block.group(2)
-            try:
-                tid = int(tid_str)
-            except Exception:
-                continue
-            m = _re.search(r"href=\"((?:/)?forum\\.php\?mod=viewthread(?:&|&amp;)tid=(\\d+)[^\"]*)\"", chunk)
-            if m:
-                href = m.group(1)
-                threads.append((tid, href))
-        # 兜底：解析 a.s.xst 标题链接（Discuz 通用）
-        if not threads:
-            for m in _re.finditer(r"<a[^>]+class=\"[^\"]*\\bxst\\b[^\"]*\"[^>]+href=\"((?:/)?forum\\.php\?mod=viewthread(?:&|&amp;)tid=(\\d+)[^\"]*)\"", html):
-                href, tid_str = m.group(1), m.group(2)
-                try:
-                    tid = int(tid_str)
-                except Exception:
-                    continue
-                threads.append((tid, href))
-        # 再兜底：页面上任何 viewthread 链接
-        if not threads:
-            for m in _re.finditer(r"href=\"((?:/)?forum\\.php\?mod=viewthread(?:&|&amp;)tid=(\\d+)[^\"]*)\"", html):
-                href, tid_str = m.group(1), m.group(2)
-                try:
-                    tid = int(tid_str)
-                except Exception:
-                    continue
-                threads.append((tid, href))
-        # 最后兜底：伪静态 thread-<tid>-1-1.html
-        if not threads:
-            for m in _re.finditer(r"href=\"(/thread-(\\d+)-\\d+-\\d+\\.html)\"", html):
-                href, tid_str = m.group(1), m.group(2)
-                try:
-                    tid = int(tid_str)
-                except Exception:
-                    continue
-                threads.append((tid, href))
-        # 归一化：补全前导斜杠，去重
-        seen = set()
-        norm: List[Tuple[int, str]] = []
-        for tid, href in threads:
-            if not href.startswith("/"):
-                href = "/" + href
-            key = (tid, href)
-            if key in seen:
-                continue
-            seen.add(key)
-            norm.append((tid, href))
-        return norm
+        return parse_threads_from_html(html)
 
     def validate_thread(self, tid: int, href: Optional[str] = None) -> Optional[str]:
         # href 可能是相对路径且带有 &amp;，需要还原
@@ -246,11 +187,14 @@ class DiscuzClient:
         r = self.http.get(path)
         if r.status_code != 200:
             return None
-        bad = ["不存在", "无权", "删除", "错误", "小黑屋", "抱歉"]
-        if any(b in r.text for b in bad):
+        if is_bad_thread_html(r.text):
             return None
         # 返回最终URL（可能已跳转到伪静态 thread-xxxx-1-1.html）
         try:
             return str(r.url)
         except Exception:
-            return f"/forum.php?mod=viewthread&tid={tid}"
+            return self.absolute_url(f"/forum.php?mod=viewthread&tid={tid}")
+
+    # ---- URL helper to comply with the unified interface ----
+    def absolute_url(self, path: str) -> str:
+        return self.http.url(path)

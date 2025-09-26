@@ -5,6 +5,13 @@ from typing import Optional, Tuple, List, Dict
 from urllib.parse import urljoin
 
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
+from .core.parsing import (
+    fetch_formhash as parse_fetch_formhash,
+    is_logged_in as parse_is_logged_in,
+    parse_forum_max_page_from_html,
+    parse_threads_from_html,
+    is_bad_thread_html,
+)
 
 
 class BrowserSession:
@@ -146,14 +153,10 @@ class DiscuzBrowserClient:
 
     # ---- Common helpers ----
     def fetch_formhash(self, html: str) -> Optional[str]:
-        m = re.search(r'name="formhash"\s+value="([a-zA-Z0-9]{8})"', html)
-        if m:
-            return m.group(1)
-        m2 = re.search(r'formhash=([a-zA-Z0-9]{8})', html)
-        return m2.group(1) if m2 else None
+        return parse_fetch_formhash(html)
 
     def is_logged_in(self, html: str) -> bool:
-        return any(x in html for x in ["退出", "我的", "用户组", "控制面板"])  # 可按需扩展
+        return parse_is_logged_in(html)
 
     # ---- Auth & Profile ----
     def login(self, username: str, password: str) -> bool:
@@ -236,6 +239,16 @@ class DiscuzBrowserClient:
             p.goto(self.sess.url("/"), wait_until="domcontentloaded")
             html2 = p.content()
             return self.is_logged_in(html2)
+        except Exception:
+            return False
+
+    def check_logged_in(self) -> bool:
+        """通过访问首页判断当前浏览器会话是否已登录（适配 Cookie 场景）。"""
+        p = self.sess.page
+        try:
+            p.goto(self.sess.url("/"), wait_until="domcontentloaded")
+            html = p.content()
+            return self.is_logged_in(html)
         except Exception:
             return False
 
@@ -348,20 +361,7 @@ class DiscuzBrowserClient:
             if not r or r.status != 200:
                 return 1
             html = p.content()
-            m = re.search(r"/forum\\.php\\?mod=forumdisplay&fid=\\d+&amp;page=(\\d+)", html)
-            last = 1
-            if m:
-                try:
-                    last = int(m.group(1))
-                except Exception:
-                    last = 1
-            m2 = re.search(r"class=\"last\">\\.\\.\\.\s*(\\d+)<", html)
-            if m2:
-                try:
-                    last = max(last, int(m2.group(1)))
-                except Exception:
-                    pass
-            return last if last >= 1 else 1
+            return parse_forum_max_page_from_html(html)
         except Exception:
             return 1
 
@@ -373,52 +373,7 @@ class DiscuzBrowserClient:
             if not r or r.status != 200:
                 return []
             html = p.content()
-            threads: List[Tuple[int, str]] = []
-            for block in re.finditer(r"<tbody\\s+id=\"normalthread_(\\d+)\">([\\s\\S]*?)</tbody>", html):
-                tid_str, chunk = block.group(1), block.group(2)
-                try:
-                    tid = int(tid_str)
-                except Exception:
-                    continue
-                m = re.search(r"href=\"((?:/)?forum\\.php\?mod=viewthread(?:&|&amp;)tid=(\\d+)[^\"]*)\"", chunk)
-                if m:
-                    href = m.group(1)
-                    threads.append((tid, href))
-            if not threads:
-                for m in re.finditer(r"<a[^>]+class=\"[^\"]*\\bxst\\b[^\"]*\"[^>]+href=\"((?:/)?forum\\.php\?mod=viewthread(?:&|&amp;)tid=(\\d+)[^\"]*)\"", html):
-                    href, tid_str = m.group(1), m.group(2)
-                    try:
-                        tid = int(tid_str)
-                    except Exception:
-                        continue
-                    threads.append((tid, href))
-            if not threads:
-                for m in re.finditer(r"href=\"((?:/)?forum\\.php\?mod=viewthread(?:&|&amp;)tid=(\\d+)[^\"]*)\"", html):
-                    href, tid_str = m.group(1), m.group(2)
-                    try:
-                        tid = int(tid_str)
-                    except Exception:
-                        continue
-                    threads.append((tid, href))
-            if not threads:
-                for m in re.finditer(r"href=\"(/thread-(\\d+)-\\d+-\\d+\\.html)\"", html):
-                    href, tid_str = m.group(1), m.group(2)
-                    try:
-                        tid = int(tid_str)
-                    except Exception:
-                        continue
-                    threads.append((tid, href))
-            seen = set()
-            norm: List[Tuple[int, str]] = []
-            for tid, href in threads:
-                if not href.startswith("/"):
-                    href = "/" + href
-                key = (tid, href)
-                if key in seen:
-                    continue
-                seen.add(key)
-                norm.append((tid, href))
-            return norm
+            return parse_threads_from_html(html)
         except Exception:
             return []
 
@@ -430,9 +385,12 @@ class DiscuzBrowserClient:
             if not r or r.status != 200:
                 return None
             html = p.content()
-            bad = ["不存在", "无权", "删除", "错误", "小黑屋", "抱歉"]
-            if any(b in html for b in bad):
+            if is_bad_thread_html(html):
                 return None
             return p.url
         except Exception:
             return None
+
+    # ---- URL helper to comply with the unified interface ----
+    def absolute_url(self, path: str) -> str:
+        return self.sess.url(path)
